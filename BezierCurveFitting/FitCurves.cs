@@ -229,10 +229,13 @@ namespace BezierCurveFitting
         private static float[] ChordLengthParameterize(Vector3[] d, int first, int last)
 		{
 			float[] array = new float[last - first + 1];
+            float[] array_unit = new float[last - first + 1];
 			array[0] = 0.0f;
+            array_unit[0] = 0.0f;
 			for (int i = first + 1; i <= last; i++)
 			{
 				array[i - first] = array[i - first - 1] + (d[i - 1] - d[i]).Length();
+                array_unit[i - first] = (d[i - 1] - d[i]).Length();
 			}
 			for (int i = first + 1; i <= last; i++)
 			{

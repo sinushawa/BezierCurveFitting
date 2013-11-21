@@ -37,7 +37,8 @@ namespace BezierCurveFitting
 			int num2 = 0;
 			for (int i = firstPoint; i < lastPoint; i++)
 			{
-				float num3 = DPReduction.PerpendicularDistance(points[firstPoint], points[lastPoint], points[i]);
+				//float num3 = DPReduction.PerpendicularDistance(points[firstPoint], points[lastPoint], points[i]);
+                float num3 = HeroPerpendicularDistance(points[firstPoint], points[lastPoint], points[i]);
 				if (num3 > num)
 				{
 					num = num3;
@@ -51,6 +52,23 @@ namespace BezierCurveFitting
 				DPReduction.DouglasPeuckerReduction(points, num2, lastPoint, tolerance, ref pointIndexsToKeep);
 			}
 		}
+        public static float HeroTriangleArea(Vector3 A, Vector3 B, Vector3 C)
+        {
+            float _ab = (A - B).Length();
+            float _ab2 = _ab*_ab;
+            float _bc = (C - B).Length();
+            float _bc2 = _bc*_bc;
+            float _ac = (A - C).Length();
+            float _ac2 = _ac*_ac;
+            float T = (float)((1.0f / 4.0f) * Math.Sqrt(4 * _bc2 * _ac2 - Math.Pow((_bc2 + _ac2 - _ab2), 2)));
+            return T;
+        }
+        public static float HeroPerpendicularDistance(Vector3 A, Vector3 B, Vector3 C)
+        {
+            float area = HeroTriangleArea(A, B, C);
+            float pD = area * 2 / (B - A).Length();
+            return pD;
+        }
         public static float PerpendicularDistance(Vector3 Point1, Vector3 Point2, Vector3 Point)
 		{
 			float num = Math.Abs(0.5f * (Point1.X * Point2.Y + Point2.X * Point.Y + Point.X * Point1.Y - Point2.X * Point1.Y - Point.X * Point2.Y - Point1.X * Point.Y));
