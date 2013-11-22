@@ -28,15 +28,19 @@ fn fitCurve Fitscale =
 		BBox=nodeLocalBoundingBox i
 		w=abs(BBox[2].x-BBox[1].x)
 		h=abs(BBox[2].y-BBox[1].y)
+		/*
 		Fitscale = w/1000
 		if w>h do
 		(
 			Fitscale = h/1000
 		)
+		*/
 		sp = splineShape()
 		nbSplines= numSplines i
+		
 		for j=1 to nbSplines do
 		(
+			nbSegments = numSegments i j
 			points = (dotnetclass "System.Activator").CreateInstance specificType
 			addnewSpline sp
 			newLast = getKnotPoint i j 1
@@ -54,6 +58,16 @@ fn fitCurve Fitscale =
 			(
 				Knot = getKnotPoint i j k
 				points.Add (dotnetObject "SharpDX.Vector3" Knot.X Knot.Y Knot.Z)
+				if (k<nbVertices AND (getSegmentType i j k) == #curve) do
+				(
+					nbSteps = i.steps
+					for step=1 to nbSteps do
+					(
+						par = (step/(nbSteps as float))
+						Knot = interpBezier3D i j k par pathParam:false
+						points.Add (dotnetObject "SharpDX.Vector3" Knot.X Knot.Y Knot.Z)
+					)
+				)
 			)
 			
 			truc=curveFit.CurveSolution points Fitscale Fitscale
@@ -84,7 +98,7 @@ fn fitCurve Fitscale =
 
 rollout CurveFittingRollout "Create Bezier curve from selection" width:400 height:120
 (
-	spinner SP "precision" range:[0,100,10]	slider FS "" ticks:10 range:[0,100,10]
+	spinner SP "precision" range:[0,1,1]	slider FS "" ticks:10 range:[0,1,1]
 	button FSCreate "apply fit curve" offset: [0,16]
 	
 	on FS changed val do

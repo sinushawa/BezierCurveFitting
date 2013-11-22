@@ -14,14 +14,16 @@ namespace BezierCurveFitting
 				return Points;
 			}
 			int num = 0;
-			int num2 = Points.Count - 1;
+			int num2 = Points.Count-1;
 			List<int> list = new List<int>();
 			list.Add(num);
 			list.Add(num2);
-			while (Points[num].Equals(Points[num2]))
+            /*
+			while (Points[num]==Points[num2])
 			{
 				num2--;
 			}
+            */
 			DPReduction.DouglasPeuckerReduction(Points, num, num2, Tolerance, ref list);
             List<Vector3> list2 = new List<Vector3>();
 			list.Sort();
@@ -35,7 +37,7 @@ namespace BezierCurveFitting
 		{
 			float num = 0.0f;
 			int num2 = 0;
-			for (int i = firstPoint; i < lastPoint; i++)
+			for (int i = firstPoint; i <= lastPoint; i++)
 			{
 				//float num3 = DPReduction.PerpendicularDistance(points[firstPoint], points[lastPoint], points[i]);
                 float num3 = HeroPerpendicularDistance(points[firstPoint], points[lastPoint], points[i]);
