@@ -4,6 +4,7 @@ shp=dotnet.loadAssembly @"C:\Program Files\Autodesk\3ds Max 2014\SharpDX.dll"
 if res != undefined do
 (
 curveFit = dotNetClass "BezierCurveFitting.Bezier"
+methodFlag= dotNetClass "BezierCurveFitting.Method"
 global truc
 global arr
 global tempcurves=#()
@@ -12,29 +13,23 @@ genericType = dotnet.GetType "System.Collections.Generic.List`1"
 innerType = dotnet.GetType "SharpDX.Vector3" 
 specificType = genericType.MakeGenericType #(innerType)
 
-fn fitCurve Fitscale =
+fn fitCurve _method _precision _numberPoints =
 (
 	
 	if tempcurves.count>0 do
 	(
 		for j=1 to tempcurves.count do
 		(
-			delete tempcurves[j]
+			try
+			(
+				delete tempcurves[j]
+			)
+			catch()
 		)
 	)
 	tempcurves=#()
 	for i in selection do
 	(
-		BBox=nodeLocalBoundingBox i
-		w=abs(BBox[2].x-BBox[1].x)
-		h=abs(BBox[2].y-BBox[1].y)
-		/*
-		Fitscale = w/1000
-		if w>h do
-		(
-			Fitscale = h/1000
-		)
-		*/
 		sp = splineShape()
 		nbSplines= numSplines i
 		
@@ -44,11 +39,9 @@ fn fitCurve Fitscale =
 			points = (dotnetclass "System.Activator").CreateInstance specificType
 			addnewSpline sp
 			newLast = getKnotPoint i j 1
-			Z=newLast.Z
 			if isClosed i j do
 			(
 				open i j
-				
 				nLI = getInVec i j 1
 				nLO= getOutVec i j 1
 				addKnot i j #bezierCorner #Line newLast nLI nLO
@@ -61,7 +54,7 @@ fn fitCurve Fitscale =
 				if (k<nbVertices AND (getSegmentType i j k) == #curve) do
 				(
 					nbSteps = i.steps
-					for step=1 to nbSteps do
+					for step=1 to nbSteps-1 do
 					(
 						par = (step/(nbSteps as float))
 						Knot = interpBezier3D i j k par pathParam:false
@@ -69,9 +62,21 @@ fn fitCurve Fitscale =
 					)
 				)
 			)
-			
-			truc=curveFit.CurveSolution points Fitscale Fitscale
-			print truc
+			method = undefined
+			if _method == 1 then
+			(
+				method = methodFlag.Precision
+			)
+			else if _method==2 then
+			(
+				method = methodFlag.Length
+			)
+			else
+			(
+				method = methodFlag.Path
+			)
+			truc=curveFit.CurveSolution method points _precision _numberPoints
+			print truc.Count
 			arr = dotNetObject "BezierCurveFitting.BezierPoint[]" truc.Count
 			truc.CopyTo arr 0
 			for i = 0 to arr.Length-1 do 
@@ -96,27 +101,31 @@ fn fitCurve Fitscale =
 	)
 )
 
-rollout CurveFittingRollout "Create Bezier curve from selection" width:400 height:120
+rollout CurveFittingRollout "Create Bezier curve from selection" width:240 height:120
 (
-	spinner SP "precision" range:[0,1,1]	slider FS "" ticks:10 range:[0,1,1]
-	button FSCreate "apply fit curve" offset: [0,16]
+	label methodLblUI "method: " across:2 align:#left
+	radioButtons methodUI labels:#("precision", "length", "path") default:2 align:#right
+	spinner precisionUI "precision: " range:[0,1000,1] width:100  enabled:false  align:#left across:2
+	spinner numberPointsUI "points: " type:#integer range:[0,500,1] width:100  align:#right
+	button fitCurveUI "apply fit curve" offset: [0,16]
 	
-	on FS changed val do
+	on methodUI changed val do
 	(
-		SP.value = val
-	)
-	on FS buttonup do
-	(
-		fitCurve FS.value
-	)
-	
-	on FSCreate pressed do
-	(
-		if tempcurves.count<1 do
+		if val==1 then
 		(
-			fitCurve FS.value
+			precisionUI.enabled=true
+			numberPointsUI.enabled = false
 		)
-		tempcurves=#()
+		else
+		(
+			precisionUI.enabled=false
+			numberPointsUI.enabled = true
+		)
+	)
+	
+	on fitCurveUI pressed do
+	(
+		fitCurve methodUI.State precisionUI.Value numberPointsUI.Value
 	)
 )
 CreateDialog CurveFittingRollout

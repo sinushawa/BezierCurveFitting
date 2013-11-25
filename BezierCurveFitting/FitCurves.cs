@@ -3,19 +3,27 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Linq;
 using SharpDX;
+using MoreLinq;
 
 namespace BezierCurveFitting
 {
+    public enum Method
+    {
+        Precision,
+        Length,
+        Path
+    }
+
 	public static class FitCurves
 	{
 		private const int MAXPOINTS = 10000;
-		public static List<BezierPoint> FitCurve(Vector3[] d, float error)
-		{
+        public static List<BezierPoint> FitCurveBy(Method _method, Vector3[] d, float error, int desiredPoints)
+        {
             Vector3 tHat;
             Vector3 tHat2;
             if (d[0] == d[d.Length - 1])
             {
-                tHat = (d[1] - d[d.Length - 2]) / 4.0f;
+                tHat = (d[1] - d[d.Length - 2]);
                 tHat.Normalize();
                 tHat2 = Vector3.Negate(tHat);
             }
@@ -24,43 +32,97 @@ namespace BezierCurveFitting
                 tHat = FitCurves.ComputeLeftTangent(d, 0);
                 tHat2 = FitCurves.ComputeRightTangent(d, d.Length - 1);
             }
-			List<BezierPoint> result = new List<BezierPoint>();
-            FitCurves.BestFit(d, 0, d.Length - 1, 10, 3, tHat, tHat2, error, result);
-			//FitCurves.FitCubic(d, 0, d.Length - 1, tHat, tHat2, error, result);
-			return result;
-		}
-        private static void BestFit(Vector3[] d, int first, int last, int iterations, int nbCtrlPoints, Vector3 tHat1, Vector3 tHat2, float error, List<BezierPoint> result)
-        {
-            Random rand = new Random();
-            List<SplineHolder> solutions = new List<SplineHolder>();
-            for (int i = 0; i < iterations; i++)
+            List<BezierPoint> result = new List<BezierPoint>();
+            if (_method == Method.Precision)
             {
-                SplineHolder solution = new SplineHolder();
-                solution.pointsData = new List<Vector3[]>();
-                List<int> ctrlPointsIDs = new List<int>();
-                ctrlPointsIDs.Add(first);
-                for (int p = 0; p < nbCtrlPoints; p++)
-                {
-                    ctrlPointsIDs.Add(rand.Next(2, d.Length - 2));
-                }
-                ctrlPointsIDs.Add(last);
-                ctrlPointsIDs.Sort();
-                for (int o = 0; o < ctrlPointsIDs.Count - 2; o++)
-                {
-                    first = ctrlPointsIDs[o];
-                    last = ctrlPointsIDs[o + 1];
-                    float[] array2 = FitCurves.ChordLengthParameterize(d, first, last);
-                    Vector3[] array = FitCurves.GenerateBezier(d, first, last, array2, tHat1, tHat2);
-                    solution.pointsData.Add(array);
-                    int num5;
-                    float num4 = FitCurves.ComputeMaxError(d, first, last, array, array2, out num5);
-                    solution.errors += num4;
-                }
-                solutions.Add(solution);
+                FitCurves.FitByPrecision(d, 0, d.Length - 1, tHat, tHat2, error, result);
             }
-            SplineHolder bestSolution = solutions.Where(x => x.errors == (solutions.Min(y => y.errors))).FirstOrDefault();
+            else if (_method != Method.Precision)
+            {
+                FitCurves.FitByParametric(_method, d, 0, d.Length - 1, tHat, tHat2, desiredPoints, result);
+            }
+            return result;
         }
-		private static void FitCubic(Vector3[] d, int first, int last, Vector3 tHat1, Vector3 tHat2, float error, List<BezierPoint> result)
+        private static List<int> GetLengthEqualIDs(Vector3[] d, int first, int last, int nbCtrlPoints)
+        {
+            List<int> result = new List<int>();
+            List<float> array2 = FitCurves.ChordLengthParameterize(d, first, last).ToList();
+            for (int i = 0; i < nbCtrlPoints; i++)
+            {
+                float desiredDiv = (i / (float)(nbCtrlPoints-1));
+                result.Add(array2.IndexOf(array2.MinBy(x => Math.Abs(x - desiredDiv))));
+            }
+            return result;
+        }
+        private static List<int> GetPathEqualIDs(Vector3[] d, int first, int last, int nbCtrlPoints)
+        {
+            List<int> result = new List<int>();
+            List<float> array2 = FitCurves.ChordLengthParameterize(d, first, last).ToList();
+            for (int i = 0; i < nbCtrlPoints; i++)
+            {
+                int desiredDiv = ((d.Length-1)/(nbCtrlPoints-1))*i;
+                result.Add(desiredDiv);
+            }
+            return result;
+        }
+        private static void FitByParametric(Method _method, Vector3[] d, int first, int last, Vector3 tHat1, Vector3 tHat2, int nbCtrlPoints, List<BezierPoint> result)
+        {
+            List<SplineHolder> solutions = new List<SplineHolder>();
+            SplineHolder solution = new SplineHolder();
+            solution.pointsData = new List<Vector3[]>();
+            List<int> ctrlPointsIDs;
+            if (_method == Method.Length)
+            {
+                ctrlPointsIDs = GetLengthEqualIDs(d, first, last, nbCtrlPoints);
+            }
+            else
+            {
+                ctrlPointsIDs = GetPathEqualIDs(d, first, last, nbCtrlPoints);
+            }
+            Vector3 keepHandle1 = tHat1;
+            Vector3 keepHandle2 = tHat2;
+            for (int i = 0; i < ctrlPointsIDs.Count - 1; i++)
+            {
+                first = ctrlPointsIDs[i];
+                last = ctrlPointsIDs[i + 1];
+                if (i == 0)
+                {
+                    tHat1 = keepHandle1;
+                    tHat2 = ComputeCenterTangent(d, last);
+                }
+                else if (i == ctrlPointsIDs.Count - 2)
+                {
+                    tHat1 = Vector3.Negate(ComputeCenterTangent(d, first));
+                    tHat2 = keepHandle2;
+                }
+                else
+                {
+                    tHat1 = Vector3.Negate(ComputeCenterTangent(d, first));
+                    tHat2 = ComputeCenterTangent(d, last);
+                }
+                float[] array2 = FitCurves.ChordLengthParameterize(d, first, last);
+                Vector3[] array = FitCurves.GenerateBezier(d, first, last, array2, tHat1, tHat2);
+                solution.pointsData.Add(array);
+                int num5;
+                float num4 = FitCurves.ComputeMaxError(d, first, last, array, array2, out num5);
+                solution.errors += num4;
+            }
+            solutions.Add(solution);
+            SplineHolder bestSolution = solutions.Where(x => x.errors == (solutions.Min(y => y.errors))).FirstOrDefault();
+            for (int i = 0; i < bestSolution.pointsData.Count; i++)
+            {
+                if (i != 0)
+                {
+                    result.Add(new BezierPoint(bestSolution.pointsData[i][0], bestSolution.pointsData[i - 1][2], bestSolution.pointsData[i][1]));
+                }
+                else
+                {
+                    result.Add(new BezierPoint(bestSolution.pointsData[i][0], null, bestSolution.pointsData[i][1]));
+                }
+            }
+            result.Add(new BezierPoint(bestSolution.pointsData[bestSolution.pointsData.Count-1][3], bestSolution.pointsData[bestSolution.pointsData.Count-1][2], null));
+        }
+        private static void FitByPrecision(Vector3[] d, int first, int last, Vector3 tHat1, Vector3 tHat2, float error, List<BezierPoint> result)
 		{
 			int num = 4;
 			float num2 = error * error;
@@ -117,9 +179,9 @@ namespace BezierCurveFitting
 				}
 			}
 			Vector3 vector = FitCurves.ComputeCenterTangent(d, num5);
-			FitCurves.FitCubic(d, first, num5, tHat1, vector, error, result);
+			FitCurves.FitByPrecision(d, first, num5, tHat1, vector, error, result);
             vector = Vector3.Negate(vector);
-			FitCurves.FitCubic(d, num5, last, vector, tHat2, error, result);
+			FitCurves.FitByPrecision(d, num5, last, vector, tHat2, error, result);
 		}
 		private static Vector3[] GenerateBezier(Vector3[] d, int first, int last, float[] uPrime, Vector3 tHat1, Vector3 tHat2)
 		{

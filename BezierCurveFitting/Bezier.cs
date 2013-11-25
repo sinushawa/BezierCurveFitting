@@ -7,10 +7,17 @@ namespace BezierCurveFitting
 {
 	public static class Bezier
 	{
-		public static List<BezierPoint> CurveSolution(List<Vector3> existingPoints, float reductionTolerance, float error)
+        public static List<BezierPoint> CurveSolution(Method _method, List<Vector3> existingPoints, float error, int desiredPoints)
 		{
-			List<Vector3> list = DPReduction.DouglasPeuckerReduction(existingPoints, reductionTolerance);
-			return FitCurves.FitCurve(list.ToArray(), error);
+            if (_method == Method.Precision)
+            {
+                List<Vector3> list = DPReduction.DouglasPeuckerReduction(existingPoints, error);
+                return FitCurves.FitCurveBy(_method, list.ToArray(), error, 0);
+            }
+            else
+            {
+                return FitCurves.FitCurveBy(_method, existingPoints.ToArray(), 0.0f, desiredPoints);
+            }
 		}
 	}
 }
