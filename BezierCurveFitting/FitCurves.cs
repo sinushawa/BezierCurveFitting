@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Windows;
 using System.Linq;
 using SharpDX;
 using MoreLinq;
