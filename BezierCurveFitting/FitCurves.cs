@@ -80,25 +80,37 @@ namespace BezierCurveFitting
             }
             Vector3 keepHandle1 = tHat1;
             Vector3 keepHandle2 = tHat2;
-            for (int i = 0; i < ctrlPointsIDs.Count - 1; i++)
+            if (ctrlPointsIDs.Count > 2)
             {
-                first = ctrlPointsIDs[i];
-                last = ctrlPointsIDs[i + 1];
-                if (i == 0)
+                for (int i = 0; i < ctrlPointsIDs.Count - 1; i++)
                 {
-                    tHat1 = keepHandle1;
-                    tHat2 = ComputeCenterTangent(d, last);
+                    first = ctrlPointsIDs[i];
+                    last = ctrlPointsIDs[i + 1];
+                    if (i == 0)
+                    {
+                        tHat1 = keepHandle1;
+                        tHat2 = ComputeCenterTangent(d, last);
+                    }
+                    else if (i == ctrlPointsIDs.Count - 2)
+                    {
+                        tHat1 = Vector3.Negate(ComputeCenterTangent(d, first));
+                        tHat2 = keepHandle2;
+                    }
+                    else
+                    {
+                        tHat1 = Vector3.Negate(ComputeCenterTangent(d, first));
+                        tHat2 = ComputeCenterTangent(d, last);
+                    }
+                    float[] array2 = FitCurves.ChordLengthParameterize(d, first, last);
+                    Vector3[] array = FitCurves.GenerateBezier(d, first, last, array2, tHat1, tHat2);
+                    solution.pointsData.Add(array);
+                    int num5;
+                    float num4 = FitCurves.ComputeMaxError(d, first, last, array, array2, out num5);
+                    solution.errors += num4;
                 }
-                else if (i == ctrlPointsIDs.Count - 2)
-                {
-                    tHat1 = Vector3.Negate(ComputeCenterTangent(d, first));
-                    tHat2 = keepHandle2;
-                }
-                else
-                {
-                    tHat1 = Vector3.Negate(ComputeCenterTangent(d, first));
-                    tHat2 = ComputeCenterTangent(d, last);
-                }
+            }
+            else
+            {
                 float[] array2 = FitCurves.ChordLengthParameterize(d, first, last);
                 Vector3[] array = FitCurves.GenerateBezier(d, first, last, array2, tHat1, tHat2);
                 solution.pointsData.Add(array);
